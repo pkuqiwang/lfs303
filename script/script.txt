@@ -1,0 +1,18 @@
+https://reinvent2019-lfs303.s3.amazonaws.com/cloudformation_lfs303.json
+
+https://qiwanglab.awsapps.com/start
+
+https://us-east-1.console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/review?templateURL=https://reinvent2019-lfs303.s3.amazonaws.com/cloudformation_lfs303.json&stackName=lfs303
+
+556520002890
+LakeAdminRole
+LakePHIAnalystRole
+LakeNonPHIAnalystRole
+
+
+script
+aws s3 cp s3://reinvent2019-lfs303/NONPHI.csv s3://reinvent2019-lfs303-default/NONPHI/NONPHI.csv
+aws s3 cp s3://reinvent2019-lfs303/PHI.csv s3://reinvent2019-lfs303-default/PHI/PHI.csv
+aws s3 ls s3://reinvent2019-lfs303-default --recursive
+
+aws s3 rm s3://reinvent2019-lfs303-default --recursive

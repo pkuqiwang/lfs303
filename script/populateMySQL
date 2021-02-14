@@ -1,0 +1,36 @@
+create database datalake;
+USE datalake;
+
+CREATE TABLE PHITable (
+    name VARCHAR(20), 
+    age INT, 
+    address VARCHAR(20), 
+    sex CHAR(1), 
+    birth DATE, 
+    death DATE);
+
+CREATE TABLE NonPHITable (
+    admission_type VARCHAR(20), 
+    discharge_disposition VARCHAR(20), 
+    admission_source VARCHAR(20), 
+    payer_code VARCHAR(20), 
+    num_procedures INT, 
+    num_medications INT);
+
+CREATE TABLE PartialPHITable (
+    admission_type VARCHAR(20), 
+    medical_specialty VARCHAR(20), 
+    insulin CHAR(1), 
+    birth DATE);
+
+INSERT INTO PHITable VALUES 
+('Fluffy',12,'123 Main Street','f','2007-02-04',NULL),
+('Claws',98,'222 Church Lane','m','1921-03-30',NULL));
+
+INSERT INTO NonPHITable VALUES 
+('Emergency','Discharged to home','Emergency Room','DM',1,21),
+('Elective','Discharged/transferred to SNF','Physician Referral','MC',1,21));
+
+INSERT INTO PartialPHITable VALUES 
+('Emergency','Cardiology','Y','2007-02-04'),
+('Elective','Surgery-Vascular','N','1921-03-30'));

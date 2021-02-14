@@ -1,0 +1,498 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Parameters": {
+        "UniquePostfix": {
+            "Type": "String",
+            "Default": "default",
+            "Description": "Enter a unique postfix value, must be all lower cases!"
+        }
+    },
+    "Resources": {
+        "LakeCloud9Env": {
+            "Type": "AWS::Cloud9::EnvironmentEC2",
+            "Properties": {
+                "AutomaticStopTimeMinutes": 30,
+                "Description": "Cloud9 environment for Lake Formation lab.",
+                "InstanceType": "t2.micro",
+                "Name": "LakeCloud9Env"
+            }
+        },
+        "LakeS3Bucket": {
+            "Type": "AWS::S3::Bucket",
+            "Description": "S3 bucket for Data Lake.",
+            "Properties": {
+                "VersioningConfiguration": {
+                    "Status": "Suspended"
+                },
+                "BucketName": {
+                    "Fn::Join": [
+                        "",
+                        [
+                            "reinvent2019-lfs303-",
+                            {
+                                "Ref": "UniquePostfix"
+                            }
+                        ]
+                    ]
+                }
+            }
+        },
+        "AthenaOutputS3Bucket": {
+            "Type": "AWS::S3::Bucket",
+            "Description": "S3 bucket for Data Lake.",
+            "Properties": {
+                "VersioningConfiguration": {
+                    "Status": "Suspended"
+                },
+                "BucketName": {
+                    "Fn::Join": [
+                        "",
+                        [
+                            "reinvent2019-lfs303-athena-",
+                            {
+                                "Ref": "UniquePostfix"
+                            }
+                        ]
+                    ]
+                }
+            }
+        },
+        "LakeAdminRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "RoleName": "LakeAdminRole",
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "AWS": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "arn:aws:iam::",
+                                            {
+                                                "Ref": "AWS::AccountId"
+                                            },
+                                            ":root"
+                                        ]
+                                    ]
+                                }
+                            },
+                            "Action": "sts:AssumeRole",
+                            "Condition": {}
+                        }
+                    ]
+                },
+                "Policies": [
+                    {
+                        "PolicyName": "DatalakeAdminBasic",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "lakeformation:*",
+                                        "cloudtrail:DescribeTrails",
+                                        "cloudtrail:LookupEvents"
+                                    ],
+                                    "Resource": "*"
+                                },
+                                {
+                                    "Effect": "Deny",
+                                    "Action": [
+                                        "lakeformation:PutDataLakeSettings"
+                                    ],
+                                    "Resource": "*"
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": "iam:CreateServiceLinkedRole",
+                                    "Resource": "*",
+                                    "Condition": {
+                                        "StringEquals": {
+                                            "iam:AWSServiceName": "lakeformation.amazonaws.com"
+                                        }
+                                    }
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "iam:PutRolePolicy"
+                                    ],
+                                    "Resource": {
+                                        "Fn::Join": [
+                                            "",
+                                            [
+                                                "arn:aws:iam::",
+                                                {
+                                                    "Ref": "AWS::AccountId"
+                                                },
+                                                ":role/aws-service-role/lakeformation.amazonaws.com/AWSServiceRoleForLakeFormationDataAccess"
+                                            ]
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "PolicyName": "DatalakePassRole",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Sid": "PassRolePermissions",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "iam:PassRole"
+                                    ],
+                                    "Resource": {
+                                        "Fn::Join": [
+                                            "",
+                                            [
+                                                "arn:aws:iam::",
+                                                {
+                                                    "Ref": "AWS::AccountId"
+                                                },
+                                                ":role/LakeWorkflowRole"
+                                            ]
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "ManagedPolicyArns": [
+                    "arn:aws:iam::aws:policy/AWSGlueConsoleFullAccess",
+                    "arn:aws:iam::aws:policy/AmazonAthenaFullAccess",
+                    "arn:aws:iam::aws:policy/AmazonS3FullAccess",
+                    "arn:aws:iam::aws:policy/AmazonRedshiftFullAccess"
+                ]
+            }
+        },
+        "LakePHIAnalystRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "RoleName": "LakePHIAnalystRole",
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "AWS": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "arn:aws:iam::",
+                                            {
+                                                "Ref": "AWS::AccountId"
+                                            },
+                                            ":root"
+                                        ]
+                                    ]
+                                }
+                            },
+                            "Action": "sts:AssumeRole",
+                            "Condition": {}
+                        },
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "redshift.amazonaws.com"
+                            },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                },
+                "Policies": [
+                    {
+                        "PolicyName": "DatalakeUserBasic",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "lakeformation:GetDataAccess",
+                                        "glue:GetTable",
+                                        "glue:GetTables",
+                                        "glue:SearchTables",
+                                        "glue:GetDatabase",
+                                        "glue:GetDatabases",
+                                        "glue:GetPartitions"
+                                    ],
+                                    "Resource": "*"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "PolicyName": "AthenaQueryResult",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "s3:*"
+                                    ],
+                                    "Resource": [
+                                        {
+                                            "Fn::Join": [
+                                                "",
+                                                [
+                                                    "arn:aws:s3:::",
+                                                    {
+                                                        "Ref": "AthenaOutputS3Bucket"
+                                                    },
+                                                    "/*"
+                                                ]
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "ManagedPolicyArns": [
+                    "arn:aws:iam::aws:policy/AmazonAthenaFullAccess",
+                    "arn:aws:iam::aws:policy/AmazonRedshiftReadOnlyAccess",
+                    "arn:aws:iam::aws:policy/AmazonRedshiftQueryEditor"
+                ]
+            }
+        },
+        "LakeNonPHIAnalystRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "RoleName": "LakeNonPHIAnalystRole",
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "AWS": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "arn:aws:iam::",
+                                            {
+                                                "Ref": "AWS::AccountId"
+                                            },
+                                            ":root"
+                                        ]
+                                    ]
+                                }
+                            },
+                            "Action": "sts:AssumeRole",
+                            "Condition": {}
+                        },
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "redshift.amazonaws.com"
+                            },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                },
+                "Policies": [
+                    {
+                        "PolicyName": "DatalakeUserBasic",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "lakeformation:GetDataAccess",
+                                        "glue:GetTable",
+                                        "glue:GetTables",
+                                        "glue:SearchTables",
+                                        "glue:GetDatabase",
+                                        "glue:GetDatabases",
+                                        "glue:GetPartitions"
+                                    ],
+                                    "Resource": "*"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "PolicyName": "AthenaQueryResult",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "s3:*"
+                                    ],
+                                    "Resource": [
+                                        {
+                                            "Fn::Join": [
+                                                "",
+                                                [
+                                                    "arn:aws:s3:::",
+                                                    {
+                                                        "Ref": "AthenaOutputS3Bucket"
+                                                    },
+                                                    "/*"
+                                                ]
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "ManagedPolicyArns": [
+                    "arn:aws:iam::aws:policy/AmazonAthenaFullAccess",
+                    "arn:aws:iam::aws:policy/AmazonRedshiftReadOnlyAccess",
+                    "arn:aws:iam::aws:policy/AmazonRedshiftQueryEditor"
+                ]
+            }
+        },
+        "LakeWorkflowRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "RoleName": "LakeWorkflowRole",
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "glue.amazonaws.com"
+                            },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                },
+                "Policies": [
+                    {
+                        "PolicyName": "DatalakeDataAccess",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Sid": "Lakeformation",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "lakeformation:GetDataAccess",
+                                        "lakeformation:GrantPermissions"
+                                    ],
+                                    "Resource": "*"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "PolicyName": "DatalakePassRole",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Sid": "PassRolePermissions",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "iam:PassRole"
+                                    ],
+                                    "Resource": {
+                                        "Fn::Join": [
+                                            "",
+                                            [
+                                                "arn:aws:iam::",
+                                                {
+                                                    "Ref": "AWS::AccountId"
+                                                },
+                                                ":role/LakeWorkflowRole"
+                                            ]
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "ManagedPolicyArns": [
+                    "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole",
+                    "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+                ]
+            }
+        },
+        "LFS303PHI": {
+            "Type": "AWS::Redshift::Cluster",
+            "Properties": {
+                "ClusterIdentifier" : "LFS303PHI",
+                "DBName": "lfs303",
+                "MasterUsername": "master",
+                "MasterUserPassword": "Password#1",
+                "NodeType": "dc2.large",
+                "ClusterType": "single-node",
+                "Port": 5439,
+                "IamRoles": [
+                    {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "arn:aws:iam::",
+                                {
+                                    "Ref": "AWS::AccountId"
+                                },
+                                ":role/LakePHIAnalystRole"
+                            ]
+                        ]
+                    }
+                ]
+            }
+        },
+        "LFS303NonPHI": {
+            "Type": "AWS::Redshift::Cluster",
+            "Properties": {
+                "ClusterIdentifier" : "LFS303NonPHI",
+                "DBName": "lfs303",
+                "MasterUsername": "master",
+                "MasterUserPassword": "Password#1",
+                "NodeType": "dc2.large",
+                "ClusterType": "single-node",
+                "Port": 5439,
+                "IamRoles": [
+                    {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "arn:aws:iam::",
+                                {
+                                    "Ref": "AWS::AccountId"
+                                },
+                                ":role/LakeNonPHIAnalystRole"
+                            ]
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+    "Outputs": {
+        "BucketName": {
+            "Value": {
+                "Ref": "LakeS3Bucket"
+            },
+            "Description": "S3 bucket for Data Lake."
+        },
+        "AthenaBucketName": {
+            "Value": {
+                "Ref": "AthenaOutputS3Bucket"
+            },
+            "Description": "S3 bucket for Athena Output."
+        }
+    }
+}
